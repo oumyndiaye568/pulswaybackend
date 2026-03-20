@@ -1,6 +1,7 @@
 import express from 'express'
 import authRoutes from './modules/auth/AuthRoute'
 import adminRoutes from './modules/admin/AdminRoute'
+import patientRoutes from './modules/patient/PatientRoute'
 import { setupSwagger } from './docs/swagger.config'
 import { errorMiddleware } from './midellwares/Errors.middelware'
 
@@ -20,8 +21,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Routes ──
-app.use('/api/auth', authRoutes);       
-// app.use('/api/patient', patientRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/patient', patientRoutes);
 // app.use('/api/accueil', accueilRoutes);
 // app.use('/api/medecin', medecinRoutes);
 app.use('/api/admin', adminRoutes);

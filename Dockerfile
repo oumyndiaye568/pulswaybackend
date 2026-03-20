@@ -16,13 +16,3 @@ RUN npm run build
 EXPOSE 3010
 
 CMD ["node", "dist/server.js"]
-```
-
----
-
-**`.dockerignore`**
-```
-node_modules
-dist
-.env
-*.log

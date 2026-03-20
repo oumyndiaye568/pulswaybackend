@@ -3,6 +3,7 @@ import jwt, { SignOptions } from 'jsonwebtoken'
 import { AuthRepository } from './AuthRepository'
 import { InscriptionDto } from './dto/inscription.dto'
 import { AppError, ErrorMessages } from '../../utils/AppError'
+import { smsService } from '../../utils/SmsService'
 
 export class AuthService {
 
@@ -35,7 +36,18 @@ export class AuthService {
       codePinChiffre
     );
 
-    // 4. On retourne un message de succès avec l'id du patient créé
+    // 4. Envoyer le SMS avec le lien vers les services
+    // On utilise un setTimeout pour ne pas bloquer la réponse
+    // si l'envoi du SMS échoue
+    setTimeout(async () => {
+      try {
+        await smsService.envoyerLienServices(data.telephone, patient.id)
+      } catch (error) {
+        console.error('[Inscription] Erreur envoi SMS:', error)
+      }
+    }, 100)
+
+    // 5. On retourne un message de succès avec l'id du patient créé
     return {
       message: "Inscription réussie ! Consultez votre SMS pour accéder aux services.",
       patientId: patient.id,
