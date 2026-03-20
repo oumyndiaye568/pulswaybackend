@@ -1,0 +1,222 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum pour les rôles
+enum Role {
+  ADMIN
+  ACCUEIL
+  PATIENT
+  MEDECIN
+}
+
+enum StatutFile {
+  EN_ATTENTE // patient inscrit, pas encore validé par l'accueil
+  VALIDE // validé par l'accueil
+  EN_COURS // en consultation avec le médecin
+  TERMINE // consultation terminée → numéro expiré
+  ANNULE
+}
+
+enum StatutTicket {
+  EN_ATTENTE
+  EN_COURS
+  TERMINE
+  ANNULE
+}
+
+enum StatutRendezVous {
+  PLANIFIE
+  CONFIRME
+  ANNULE
+}
+
+enum TypeNotification {
+  INSCRIPTION // SMS — lien vers les services
+  RENDEZ_VOUS // IN_APP
+  PATIENT_REFERE // IN_APP
+  URGENCE // IN_APP
+}
+
+enum CanalNotification {
+  SMS // uniquement pour l'inscription
+  IN_APP // toutes les autres notifications
+}
+
+enum CreerPar {
+  MEDECIN
+  ACCUEIL
+}
+
+// ── USER (classe parente) ──────────────────
+
+model User {
+  id        Int      @id @default(autoincrement())
+  nom       String?
+  prenom    String?
+  telephone String?  @unique
+  email     String?  @unique
+  password  String?
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  admin   Admin?
+  accueil Accueil?
+  patient Patient?
+  medecin Medecin?
+}
+
+// ── ADMIN ──────────────────────────────────
+
+model Admin {
+  id     Int  @id @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ── ACCUEIL ────────────────────────────────
+
+model Accueil {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceId Int?
+  service   Service? @relation(fields: [serviceId], references: [id])
+}
+
+// ── MEDECIN ────────────────────────────────
+
+model Medecin {
+  id         Int     @id @default(autoincrement())
+  userId     Int     @unique
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialite String
+  serviceId  Int
+  service    Service @relation(fields: [serviceId], references: [id])
+
+  // Relations
+  rendezVous RendezVous[]
+  tickets    Ticket[]
+}
+
+// ── PATIENT ────────────────────────────────
+
+model Patient {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  telephone      String   @unique
+  codePin        String // chiffré avec bcrypt
+  age            Int?
+  estComplet     Boolean  @default(false) // false = pas encore validé par l'accueil
+  estPrioritaire Boolean  @default(false) // true automatiquement si age >= 60
+  estRefere      Boolean  @default(false) // true si référé par un médecin
+  createdAt      DateTime @default(now())
+
+  // Relations
+  fileAttente   FileAttente?
+  tickets       Ticket[]
+  rendezVous    RendezVous[]
+  notifications Notification[]
+}
+
+// ── SERVICE ────────────────────────────────
+
+model Service {
+  id          Int      @id @default(autoincrement())
+  nom         String   @unique
+  description String?
+  prixTicket  Float    @default(5000)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  medecins    Medecin[]
+  accueils    Accueil[]
+  fileAttente FileAttente[]
+  tickets     Ticket[]
+  rendezVous  RendezVous[]
+}
+
+// ── FILE ATTENTE ───────────────────────────
+
+model FileAttente {
+  id              Int        @id @default(autoincrement())
+  patientId       Int        @unique // un patient = une seule place dans la file
+  patient         Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  serviceId       Int
+  service         Service    @relation(fields: [serviceId], references: [id])
+  numero          Int // numéro dans la file du service (ex: 5)
+  estPrioritaire  Boolean    @default(false) // true si age >= 60
+  statut          StatutFile @default(EN_ATTENTE)
+  heurePrise      DateTime   @default(now()) // heure d'inscription
+  heureValidation DateTime? // heure de validation par l'accueil
+  heureExpiration DateTime? // heure de fin de consultation → numéro expiré
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  ticket Ticket?
+}
+
+// ── TICKET ─────────────────────────────────
+
+model Ticket {
+  id             Int          @id @default(autoincrement())
+  patientId      Int
+  patient        Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  medecinId      Int?
+  medecin        Medecin?     @relation(fields: [medecinId], references: [id])
+  serviceId      Int
+  service        Service      @relation(fields: [serviceId], references: [id])
+  fileAttenteId  Int          @unique
+  fileAttente    FileAttente  @relation(fields: [fileAttenteId], references: [id])
+  numero         String // ex: "RAD-5", "MG-12", "ORL-3"
+  montantPaye    Float
+  montantRestant Float        @default(0)
+  statut         StatutTicket @default(EN_ATTENTE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+// ── RENDEZ-VOUS ────────────────────────────
+
+model RendezVous {
+  id        Int              @id @default(autoincrement())
+  patientId Int
+  patient   Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  medecinId Int
+  medecin   Medecin          @relation(fields: [medecinId], references: [id])
+  serviceId Int
+  service   Service          @relation(fields: [serviceId], references: [id])
+  creerPar  CreerPar // MEDECIN ou ACCUEIL
+  date      DateTime
+  heure     String
+  motif     String?
+  statut    StatutRendezVous @default(PLANIFIE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+// ── NOTIFICATION ───────────────────────────
+
+model Notification {
+  id        Int               @id @default(autoincrement())
+  patientId Int
+  patient   Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  type      TypeNotification
+  canal     CanalNotification @default(IN_APP) // SMS uniquement pour l'inscription
+  message   String
+  lu        Boolean           @default(false)
+  createdAt DateTime          @default(now())
+}
