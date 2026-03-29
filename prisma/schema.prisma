@@ -27,6 +27,7 @@ enum StatutFile {
   EN_COURS      // en consultation avec le médecin
   TERMINE       // consultation terminée → numéro expiré
   ANNULE
+  URGENCE       // patient urgent - traité en priorité
 }
 
 enum StatutTicket {
@@ -57,6 +58,11 @@ enum CanalNotification {
 enum CreerPar {
   MEDECIN
   ACCUEIL
+}
+
+enum TypeEntree {
+  SPONTANE    // Sans RDV - doit passer par l'accueil pour vérification
+  RDV         // Avec RDV - infos déjà complètes, validation rapide
 }
 
 // ── USER (classe parente) ──────────────────
@@ -108,8 +114,11 @@ model Medecin {
   service    Service      @relation(fields: [serviceId], references: [id])
 
   // Relations
-  rendezVous RendezVous[]
-  tickets    Ticket[]
+  rendezVous    RendezVous[]
+  tickets       Ticket[]
+  prescriptions Prescription[]
+  referersSource Referer[]    @relation("MedecinSource")
+  referersCible  Referer[]    @relation("MedecinCible")
 }
 
 // ── PATIENT ────────────────────────────────
@@ -131,6 +140,8 @@ model Patient {
   tickets       Ticket[]
   rendezVous    RendezVous[]
   notifications Notification[]
+  prescriptions Prescription[]
+  referers      Referer[]
 }
 
 // ── SERVICE ────────────────────────────────
@@ -139,6 +150,7 @@ model Service {
   id          Int      @id @default(autoincrement())
   nom         String   @unique
   description String?
+  localisation String?  // Bâtiment, étage, etc. ex: "Bâtiment A, Rez-de-chaussée"
   prixTicket  Float    @default(5000)
   createdAt   DateTime @default(now())
 
@@ -160,6 +172,7 @@ model FileAttente {
   service         Service    @relation(fields: [serviceId], references: [id])
   numero          Int        // numéro dans la file du service (ex: 5)
   estPrioritaire  Boolean    @default(false) // true si age >= 60
+  typeEntree      TypeEntree @default(SPONTANE) // Type d'entrée: RDV ou SPONTANE
   statut          StatutFile @default(EN_ATTENTE)
   heurePrise      DateTime   @default(now())   // heure d'inscription
   heureValidation DateTime?  // heure de validation par l'accueil
@@ -187,8 +200,15 @@ model Ticket {
   montantPaye   Float
   montantRestant Float       @default(0)
   statut        StatutTicket @default(EN_ATTENTE)
+  compteRendu   String?      // Compte-rendu de consultation
+  estUrgence    Boolean      @default(false)  // Marque si urgence déclarée
+  dateDebut     DateTime?    // Quand la consultation commence
+  dateFin       DateTime?    // Quand la consultation termine
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+
+  // Relations
+  prescriptions Prescription[]
 }
 
 // ── RENDEZ-VOUS ────────────────────────────
@@ -221,4 +241,36 @@ model Notification {
   message   String
   lu        Boolean           @default(false)
   createdAt DateTime          @default(now())
+}
+
+// ── PRESCRIPTION ─────────────────────────────
+
+model Prescription {
+  id          Int      @id @default(autoincrement())
+  patientId   Int
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  medecinId   Int
+  medecin     Medecin  @relation(fields: [medecinId], references: [id])
+  ticketId    Int?
+  ticket      Ticket?  @relation(fields: [ticketId], references: [id])
+  medicaments String   // Liste des médicaments
+  examens     String?  // Examens à faire
+  posologie   String?  // Posologie
+  createdAt   DateTime @default(now())
+}
+
+// ── REFERER (Patients référés) ───────────────
+
+model Referer {
+  id              Int      @id @default(autoincrement())
+  patientId       Int
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  medecinSourceId Int      // Médecin qui réfère
+  medecinSource   Medecin  @relation("MedecinSource", fields: [medecinSourceId], references: [id])
+  medecinCibleId  Int      // Médecin cible
+  medecinCible    Medecin  @relation("MedecinCible", fields: [medecinCibleId], references: [id])
+  motif           String
+  estUrgence      Boolean  @default(false)
+  statut          String   @default("EN_ATTENTE") // EN_ATTENTE, ACCEPTE, REFUSE
+  createdAt       DateTime @default(now())
 }

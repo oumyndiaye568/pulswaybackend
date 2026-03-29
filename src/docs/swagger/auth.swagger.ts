@@ -1,7 +1,7 @@
 export const authSwagger = {
   '/auth/inscription': {
     post: {
-      tags: ['Auth'],
+      tags: ['Auth - Inscription'],
       summary: 'Inscription d\'un nouveau patient',
       requestBody: {
         required: true,
@@ -55,7 +55,7 @@ export const authSwagger = {
 
   '/auth/login': {
     post: {
-      tags: ['Auth'],
+      tags: ['Auth - Login'],
       summary: 'Connexion — Patient (téléphone + codePin) ou Staff (email + password)',
       requestBody: {
         required: true,

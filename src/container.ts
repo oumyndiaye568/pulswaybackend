@@ -27,3 +27,4 @@ const patientService = new PatientService(patientRepository);
 export const authController = new AuthController(authService);
 export const adminController = new AdminController(adminService);
 export const patientController = new PatientController(patientService);
+

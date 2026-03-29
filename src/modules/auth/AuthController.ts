@@ -68,6 +68,7 @@ import { Request, Response, NextFunction } from 'express'
 import { AuthService } from './Authservice'
 import { InscriptionSchema } from './dto/inscription.dto'
 import { LoginSchema } from './dto/login.dto'
+import { RefreshTokenSchema } from './dto/refresh-token.dto'
 import { sendSuccess, sendError } from '../../utils/Reponse'
 
 export class AuthController {
@@ -111,6 +112,27 @@ export class AuthController {
 
       const result = await this.service.login(validation.data);
       return sendSuccess(res, result, result.message, 200);
+
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async refreshToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const validation = RefreshTokenSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return sendError(res, 'Données invalides', 400,
+          validation.error.issues.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        );
+      }
+
+      const result = await this.service.refreshToken(validation.data.refreshToken);
+      return sendSuccess(res, result, 'Token rafraîchi', 200);
 
     } catch (error) {
       next(error);

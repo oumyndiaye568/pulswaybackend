@@ -13,9 +13,20 @@ export class SmsService {
     const authToken = process.env.TWILIO_AUTH_TOKEN
     this.fromNumber = process.env.TWILIO_PHONE_NUMBER || ''
 
+    // Nettoyer les valeurs (enlever les espaces)
+    const cleanSid = accountSid?.trim()
+    const cleanToken = authToken?.trim()
+
     // Initialiser le client Twilio seulement si les credentials sont configurés
-    if (accountSid && authToken && accountSid !== 'votre_account_sid') {
-      this.client = twilio(accountSid, authToken)
+    if (cleanSid && cleanToken && !cleanSid.includes('votre_')) {
+      try {
+        this.client = twilio(cleanSid, cleanToken)
+        console.log('[SMS] ✅ Client Twilio initialisé')
+      } catch (error) {
+        console.error('[SMS] ❌ Erreur initialisation Twilio:', error)
+      }
+    } else {
+      console.log('[SMS] ⚠️ Credentials Twilio non configurés ou invalides')
     }
   }
 
@@ -23,10 +34,18 @@ export class SmsService {
    * Envoyer un SMS avec le lien vers les services
    * @param telephone - Numéro du destinataire
    * @param patientId - ID du patient pour le lien
+   * @param tempToken - Token temporaire pour l'authentification (3 min)
    */
-  async envoyerLienServices(telephone: string, patientId: number): Promise<boolean> {
+  async envoyerLienServices(telephone: string, patientId: number, tempToken?: string): Promise<boolean> {
     const baseUrl = process.env.BASE_URL_PROD || process.env.BASE_URL || 'http://localhost:3010'
-    const lien = `${baseUrl}/patient/services?token=${patientId}`
+    
+    // Construire le lien avec le token temporaire si disponible
+    let lien = `${baseUrl}/api/public/services`
+    if (tempToken) {
+      lien += `?token=${tempToken}`
+    } else {
+      lien += `?patientId=${patientId}`
+    }
     
     const message = `Bienvenue sur PulseWay ! Cliquez ici pour acceder aux services: ${lien}`
 
@@ -55,8 +74,21 @@ export class SmsService {
     }
 
     try {
-      // Formater le numéro (ajouter + si absent)
-      const formattedTo = to.startsWith('+') ? to : `+${to}`
+      // Formater le numéro (enlever les espaces, ajouter + si absent)
+      let formattedTo = to.replace(/\s+/g, '')
+      if (!formattedTo.startsWith('+')) {
+        // Pour les numéros Senegal (221) ou autre pays
+        if (formattedTo.startsWith('221')) {
+          formattedTo = '+' + formattedTo
+        } else if (formattedTo.length === 9) {
+          // Numéro local Senegal (ex: 771234567)
+          formattedTo = '+221' + formattedTo
+        } else {
+          formattedTo = '+' + formattedTo
+        }
+      }
+
+      console.log(`[SMS] Tentative d'envoi vers: ${formattedTo}`)
 
       const result = await this.client.messages.create({
         body: message,
@@ -64,10 +96,10 @@ export class SmsService {
         to: formattedTo
       })
 
-      console.log(`[SMS] Envoyé avec succès! SID: ${result.sid}`)
+      console.log(`[SMS] ✅ Envoyé avec succès! SID: ${result.sid}`)
       return true
-    } catch (error) {
-      console.error('[SMS] Erreur lors de l\'envoi:', error)
+    } catch (error: any) {
+      console.error('[SMS] ❌ Erreur lors de l\'envoi:', error.message || error)
       return false
     }
   }

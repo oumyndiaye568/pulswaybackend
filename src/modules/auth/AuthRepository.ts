@@ -19,6 +19,16 @@ export class AuthRepository {
     });
   }
 
+  /**
+   * Trouver un utilisateur par son ID
+   * Utilisé pour le refresh token
+   */
+  async findUserById(id: number): Promise<User | null> {
+    return prisma.user.findUnique({
+      where: { id }
+    });
+  }
+
 
 
   /**

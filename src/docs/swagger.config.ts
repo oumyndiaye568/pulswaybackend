@@ -1,10 +1,14 @@
 import swaggerJsdoc from 'swagger-jsdoc'
 import swaggerUi from 'swagger-ui-express'
+import { patientSwagger } from './swagger/patient.swagger'
 import { Express } from 'express'
 
 // Import des docs
 import { authSwagger } from './swagger/auth.swagger'
 import { adminSwagger } from './swagger/admin.swagger'
+import { publicSwagger } from './swagger/public.swagger'
+import { medecinSwagger } from './swagger/medecin.swagger'
+import { accueilSwagger } from './swagger/accueil.swagger'
 
 const options = {
   definition: {
@@ -16,8 +20,13 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:3010/api',
-        description: 'Serveur de développement',
+        
+    url: process.env.NODE_ENV === 'production' 
+      ? 'https://pulswaybackend.onrender.com/api'
+      : 'http://localhost:3010/api',
+    description: process.env.NODE_ENV === 'production'
+      ? 'Serveur de production'
+      : 'Serveur local',
       }
     ],
     components: {
@@ -34,6 +43,10 @@ const options = {
     paths: {
       ...authSwagger,
       ...adminSwagger,
+      ...patientSwagger,
+      ...publicSwagger,
+      ...medecinSwagger,
+      ...accueilSwagger,
     }
   },
   apis: [],

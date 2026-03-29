@@ -174,4 +174,74 @@ export class AuthService {
     // → les données sont invalides
     throw AppError.badRequest("Données de connexion invalides");
   }
+
+  /**
+   * ── REFRESH TOKEN ──
+   * Renouvelle l'access token à partir du refresh token
+   * Le refresh token contient l'id de l'utilisateur
+   */
+  async refreshToken(refreshToken: string) {
+    try {
+      // 1. Vérifier le refresh token
+      const decoded = jwt.verify(
+        refreshToken,
+        process.env.REFRESH_SECRET as string
+      ) as { id: number }
+
+      // 2. Chercher l'utilisateur en base
+      const user = await this.repository.findUserById(decoded.id)
+      if (!user) {
+        throw AppError.unauthorized("Utilisateur introuvable")
+      }
+
+      // 3. Vérifier si c'est un Patient (role = PATIENT)
+      if (user.role === 'PATIENT') {
+        // Chercher le patient pour avoir le téléphone
+        
+        const accessToken = jwt.sign(
+          { id: user.id, role: 'PATIENT', telephone: user.telephone },
+          process.env.ACCESS_SECRET as string,
+          { expiresIn: process.env.ACCESS_EXPIRES_IN } as SignOptions
+        )
+
+        const newRefreshToken = jwt.sign(
+          { id: user.id },
+          process.env.REFRESH_SECRET as string,
+          { expiresIn: process.env.REFRESH_EXPIRES_IN } as SignOptions
+        )
+
+        return {
+          accessToken,
+          refreshToken: newRefreshToken,
+        }
+      }
+
+      // Si c'est un Staff (Admin, Médecin, Accueil)
+      const accessToken = jwt.sign(
+        { id: user.id, role: user.role, email: user.email },
+        process.env.ACCESS_SECRET as string,
+        { expiresIn: process.env.ACCESS_EXPIRES_IN } as SignOptions
+      )
+
+      const newRefreshToken = jwt.sign(
+        { id: user.id },
+        process.env.REFRESH_SECRET as string,
+        { expiresIn: process.env.REFRESH_EXPIRES_IN } as SignOptions
+      )
+
+      return {
+        accessToken,
+        refreshToken: newRefreshToken,
+      }
+
+    } catch (error) {
+      if (error instanceof jwt.TokenExpiredError) {
+        throw AppError.unauthorized("Refresh token expiré")
+      }
+      if (error instanceof jwt.JsonWebTokenError) {
+        throw AppError.unauthorized("Refresh token invalide")
+      }
+      throw error
+    }
+  }
 }
