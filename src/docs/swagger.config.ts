@@ -20,14 +20,13 @@ const options = {
     },
     servers: [
       {
-        
-    url: process.env.NODE_ENV === 'production' 
-      ? 'https://pulswaybackend.onrender.com/api'
-      : 'http://localhost:3010/api',
-    description: process.env.NODE_ENV === 'production'
-      ? 'Serveur de production'
-      : 'Serveur local',
-      }
+        url: 'http://localhost:3010/api',
+        description: 'Serveur local',
+      },
+      {
+        url: 'https://pulswaybackend.onrender.com/api',
+        description: 'Serveur de production',
+      },
     ],
     components: {
       securitySchemes: {
