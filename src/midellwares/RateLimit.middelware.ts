@@ -26,7 +26,7 @@ export const authLimiter = rateLimit({
  */
 export const inscriptionLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 heures
-  max: 3, // 3 inscriptions max par IP
+  max: 10, // 10 inscriptions max par IP (augmenté pour tests)
   message: {
     success: false,
     message: 'Trop de demandes d\'inscription. Veuillez réessayer demain.'
